@@ -5,6 +5,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"database/sql"
+	_ "github.com/lib/pq"
+
+	"github.com/xtianatilano/christian-golang-training-beginner/internal/postgres"
+	"github.com/xtianatilano/christian-golang-training-beginner/internal/rest"
+	paymentcodeservice "github.com/xtianatilano/christian-golang-training-beginner/paymentcode"
 )
 
 type healthCheckResponse struct {
@@ -52,17 +58,29 @@ func handleDefaultResponse(w http.ResponseWriter, status int, jsonData *defaultR
 }
 
 func handleRequests() {
-	port := "9000"
-	server := http.Server{
-		Addr:    "0.0.0.0:" + port,
-		Handler: nil,
-	}
-	http.HandleFunc("/", notFoundHandler)
-	http.HandleFunc("/health", healthCheck)
-	http.HandleFunc("/hello-world", helloWorld)
+	//port := "9000"
+	//server := http.Server{
+	//	Addr:    "0.0.0.0:" + port,
+	//	Handler: nil,
+	//}
+	//http.HandleFunc("/", notFoundHandler)
+	//http.HandleFunc("/health", healthCheck)
+	//http.HandleFunc("/hello-world", helloWorld)
+	//
+	//log.Println("Listening on port:", port)
+	//log.Fatal(server.ListenAndServe())
 
-	log.Println("Listening on port:", port)
-	log.Fatal(server.ListenAndServe())
+	dataSourceName := "postgres://commander:pass123$$@localhost:5432/xendit?sslmode=disable"
+
+	db, err := sql.Open("postgres", dataSourceName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	server := http.NewServeMux()
+	repo:= postgres.New(db)
+	service := paymentcodeservice.New(repo)
+	rest.InitRestHandler(server, service);
+	log.Fatal(http.ListenAndServe(":9000", server))
 }
 
 func main() {
