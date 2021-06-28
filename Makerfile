@@ -1,0 +1,7 @@
+migrate-up:
+		migrate -database "postgresql://commander:pass123$$@xendit_postgres:5432/xendit?sslmode=disable" \
+        -path=internal/postgres/migrations up
+
+migrate-down:
+		migrate -database "postgresql://commander:pass123$$@xendit_postgres:5432/xendit?sslmode=disable" \
+        -path=internal/postgres/migrations down

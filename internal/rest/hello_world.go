@@ -1,9 +1,8 @@
-package main
+package rest
 
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 )
 
@@ -33,11 +32,6 @@ func helloWorld(w http.ResponseWriter, r *http.Request){
 	handleDefaultResponse(w, http.StatusOK, jsonData)
 }
 
-func notFoundHandler(w http.ResponseWriter, r *http.Request) {
-	jsonData := &defaultResponse{ Message: "Route does not exist!" }
-	handleDefaultResponse(w, http.StatusNotFound, jsonData)
-}
-
 func handleDefaultResponse(w http.ResponseWriter, status int, jsonData *defaultResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -51,20 +45,7 @@ func handleDefaultResponse(w http.ResponseWriter, status int, jsonData *defaultR
 	w.Write(e)
 }
 
-func handleRequests() {
-	port := "9000"
-	server := http.Server{
-		Addr:    "0.0.0.0:" + port,
-		Handler: nil,
-	}
-	http.HandleFunc("/", notFoundHandler)
-	http.HandleFunc("/health", healthCheck)
-	http.HandleFunc("/hello-world", helloWorld)
-
-	log.Println("Listening on port:", port)
-	log.Fatal(server.ListenAndServe())
-}
-
-func main() {
-	handleRequests()
+func HandleRequests(router *http.ServeMux) {
+	router.HandleFunc("/health", healthCheck)
+	router.HandleFunc("/hello-world", helloWorld)
 }
