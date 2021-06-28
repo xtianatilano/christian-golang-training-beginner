@@ -58,42 +58,6 @@ func (r Repository) Create(paymentCode *paymentcodedomain.PaymentCode) (standard
 	return nil
 }
 
-func (r Repository) Update(paymentCode *paymentcodedomain.PaymentCode) (standardError *standarderror.StandardError) {
-	paymentCode.UpdatedAt = time.Now().UTC()
-
-	sqlStatement := `UPDATE paymentcode SET payment_code=$1,
-	name=$2, status=$3, expiration_date=$4, updated_at=$5 WHERE id=$6`
-	result, err := r.db.Exec(
-		sqlStatement,
-		paymentCode.PaymentCode,
-		paymentCode.Name,
-		paymentCode.Status,
-		paymentCode.ExpirationDate,
-		paymentCode.UpdatedAt,
-		paymentCode.Id,
-	)
-	updatedRow, err := result.RowsAffected()
-
-	if err != nil {
-		standardError = &standarderror.StandardError{
-			ErrorCode:    "UPDATE_PAYMENT_CODE_ERROR",
-			ErrorMessage: "database error",
-			StatusCode:   500,
-		}
-		return
-	}
-
-	if updatedRow != 1 {
-		standardError = &standarderror.StandardError{
-			ErrorCode:    "UPDATE_PAYMENT_CODE_ERROR",
-			ErrorMessage: "payment code not updated error",
-			StatusCode:   500,
-		}
-	}
-
-	return nil
-}
-
 func (r Repository) Get(id string) (standardError *standarderror.StandardError, paymentCode paymentcodedomain.PaymentCode) {
 	sqlStatement :=
 		`SELECT
@@ -129,34 +93,4 @@ func (r Repository) Get(id string) (standardError *standarderror.StandardError, 
 	}
 
 	return nil, paymentCode
-}
-
-func (r Repository) Delete(id string) (standardError *standarderror.StandardError) {
-	sqlStatement := `DELETE FROM paymentcode WHERE id=$1`
-	result, err := r.db.Exec(
-		sqlStatement,
-		id,
-	)
-
-	deletedRow, err := result.RowsAffected()
-
-	if err != nil {
-		standardError = &standarderror.StandardError{
-			ErrorCode:    "DELETE_PAYMENT_CODE_ERROR",
-			ErrorMessage: "fail to delete payment code",
-			StatusCode:   500,
-		}
-		return
-	}
-
-	if deletedRow != 1 {
-		standardError = &standarderror.StandardError{
-			ErrorCode:    "DELETE_PAYMENT_CODE_ERROR",
-			ErrorMessage: "fail to delete payment code",
-			StatusCode:   500,
-		}
-		return
-	}
-
-	return nil
 }
