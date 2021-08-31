@@ -2,88 +2,98 @@ package rest
 
 import (
 	"encoding/json"
-	_ "github.com/lib/pq"
-	"log"
+	"io/ioutil"
 	"net/http"
-	"regexp"
-	"strings"
 
-	paymentcodedomain "github.com/xtianatilano/christian-golang-training-beginner"
-	standarderror "github.com/xtianatilano/christian-golang-training-beginner/pkg"
+	"github.com/julienschmidt/httprouter"
+	golangtraining "github.com/xtianatilano/christian-golang-training-beginner"
 )
 
-type IPaymentCodeService interface {
-	Create(paymentcode *paymentcodedomain.PaymentCode) *standarderror.StandardError
-	Get(id string) (err *standarderror.StandardError, paymentcode paymentcodedomain.PaymentCode)
+//go:generate mockgen -destination=mocks/mock_paymentcodes_service.go -package=mocks . Service
+type Service interface {
+	Create(p *golangtraining.PaymentCode) error
+	GetByID(ID string) (golangtraining.PaymentCode, error)
 }
 
-type paymentCodeHandler struct {
-	service IPaymentCodeService
+type paymentCodeServiceHandler struct {
+	service        Service
 }
 
-func HandlePaymentCodeRequest(router *http.ServeMux, service IPaymentCodeService) {
-	h := paymentCodeHandler{
-		service: service,
+type GetByIDRes struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// InitPaymentCodeRESTHandler will initialize the REST handler for Payment Code
+func InitPaymentCodeRESTHandler(r *httprouter.Router, service Service) {
+	h := paymentCodeServiceHandler{
+		service:        service,
 	}
-	router.HandleFunc("/", h.handleHttpMethod)
+
+	r.POST("/payment-codes", h.Create)
+	r.GET("/payment-codes/:id", h.GetByID)
 }
 
-func (p paymentCodeHandler) handleHttpMethod(w http.ResponseWriter, r *http.Request) {
-	pattern := `^/payment-codes.*`
-	url := r.URL.Path
-	matched, err := regexp.MatchString(pattern, r.URL.Path)
+func (s paymentCodeServiceHandler) Create(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	w.Header().Set("Content-Type", "application/json")
+
+	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	if !matched {
-		http.NotFound(w, r)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"error"}`))
 		return
 	}
 
-	id := strings.Replace(url, "/payment-codes/", "", 1)
-
-	switch r.Method {
-	case http.MethodPost:
-		p.Create(w, r)
-	case http.MethodGet:
-		p.Get(w, r, id)
-	default:
-		http.NotFound(w, r)
+	var p *golangtraining.PaymentCode
+	if err = json.Unmarshal(b, &p); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"error"}`))
+		return
 	}
-}
 
-func (p paymentCodeHandler) Create(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-	paymentcode := paymentcodedomain.PaymentCode{}
-	json.NewDecoder(r.Body).Decode(&paymentcode)
+	if p.Name == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"message":"bad request"}`))
+		return
+	}
 
-	err := p.service.Create(&paymentcode)
-
+	err = s.service.Create(p)
 	if err != nil {
-		errorHandler(w, r, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"error creating"}`))
+		return
+	}
+
+	e, err := json.Marshal(p)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"error"}`))
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(paymentcode)
+	w.Write(e)
 }
 
-func (p paymentCodeHandler) Get(w http.ResponseWriter, r *http.Request, id string) {
-	w.Header().Add("Content-Type", "application/json")
-	err, paymentCode := p.service.Get(id)
+func (s paymentCodeServiceHandler) GetByID(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	w.Header().Set("Content-Type", "application/json")
+	pID := ps.ByName("id")
+
+	res, err := s.service.GetByID(pID)
 	if err != nil {
-		errorHandler(w, r, err)
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"message":"not found"}`))
 		return
 	}
-	json.NewEncoder(w).Encode(paymentCode)
-}
 
-func errorHandler(w http.ResponseWriter, r *http.Request, err *standarderror.StandardError) {
-	errResponse := map[string]string{}
-	errResponse["error_code"] = err.ErrorCode
-	errResponse["message"] = err.ErrorMessage
-	w.WriteHeader(err.StatusCode)
+	e, err := json.Marshal(res)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"error"}`))
 
-	json.NewEncoder(w).Encode(errResponse)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(e)
 }

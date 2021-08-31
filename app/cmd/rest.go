@@ -1,31 +1,44 @@
 package cmd
 
 import (
-	"database/sql"
-	"github.com/xtianatilano/christian-golang-training-beginner/internal/postgres"
-	paymentcodeservice "github.com/xtianatilano/christian-golang-training-beginner/paymentcode"
+	"github.com/spf13/cobra"
 	"log"
 	"net/http"
+	"time"
 
-	"github.com/xtianatilano/christian-golang-training-beginner/internal/rest"
+	"github.com/julienschmidt/httprouter"
+	rest "github.com/xtianatilano/christian-golang-training-beginner/internal/rest"
 )
 
-func Execute() {
-	dataSourceName := "postgres://commander:pass123$$@localhost:5432/xendit?sslmode=disable"
+var restCommand = &cobra.Command{
+	Use:   "rest",
+	Short: "Start REST server",
+	Run:   restServer,
+}
 
-	db, err := sql.Open("postgres", dataSourceName)
-	if err != nil {
-		log.Fatal(err)
+func init() {
+	rootCmd.AddCommand(restCommand)
+}
+
+func restServer(cmd *cobra.Command, args []string) {
+	port := ":3000"
+
+	r := httprouter.New()
+
+	initHttpClient()
+	rest.InitHandler(r)
+
+	rest.InitPaymentCodeRESTHandler(r, paymentCodeService)
+
+	log.Println("listen on", port)
+	log.Fatal(http.ListenAndServe(port, r))
+}
+
+func initHttpClient() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConnsPerHost: 20,
+		},
+		Timeout: 10 * time.Second,
 	}
-	repo:= postgres.New(db)
-	service := paymentcodeservice.New(repo)
-
-	port := ":9000"
-	server := http.NewServeMux()
-
-	rest.HandleRequests(server)
-	rest.HandlePaymentCodeRequest(server, service)
-
-	log.Println("Listening on port", port)
-	log.Fatal(http.ListenAndServe(port, server))
 }

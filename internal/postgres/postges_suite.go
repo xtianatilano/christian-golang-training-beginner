@@ -15,7 +15,7 @@ const (
 	migrationDbName = "postgres"
 
 	// DefaultTestDsn is the default url for testing postgresql in the postgres test suites
-	DefaultTestDsn = "user=postgres password=password dbname=testing host=localhost port=5432 sslmode=disable"
+	DefaultTestDsn = "user=postgres password=password dbname=postgres host=localhost port=5432 sslmode=disable"
 )
 
 // Suite struct for MySQL Suite

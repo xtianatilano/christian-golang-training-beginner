@@ -1,58 +1,62 @@
-package paymentcodeservice
+package paymentcode
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/xtianatilano/christian-golang-training-beginner"
-	"github.com/xtianatilano/christian-golang-training-beginner/pkg"
+	golangtraining "github.com/xtianatilano/christian-golang-training-beginner"
 )
 
-type IPaymentCodeRepository interface {
-	Create(paymentCode *paymentcodedomain.PaymentCode) *standarderror.StandardError
-	Get(id string) (err *standarderror.StandardError, paymentCode paymentcodedomain.PaymentCode)
+type GetByIDResponse struct {
+	ID string
 }
 
-type Service struct {
-	repo IPaymentCodeRepository
+//go:generate mockgen -destination=mocks/mock_paymentcodes_repo.go -package=mocks . Repository
+type Repository interface {
+	Create(p *golangtraining.PaymentCode) (*golangtraining.PaymentCode, error)
+	GetByID(ID string) (golangtraining.PaymentCode, error)
+	Expire() error
 }
 
-func New(repo IPaymentCodeRepository) *Service {
-	return &Service{
+type PaymentCodeService struct {
+	repo Repository
+}
+
+// NewService will initialize the implementations of VA Settings service
+func NewService(
+	repo Repository,
+) *PaymentCodeService {
+	return &PaymentCodeService{
 		repo: repo,
 	}
 }
 
-func (s Service) Create(paymentCode *paymentcodedomain.PaymentCode) (standardError *standarderror.StandardError) {
-	expirationDate := time.Now().UTC().AddDate(69, 0, 0)
-	paymentCode.ExpirationDate = &expirationDate
-	paymentCode.Status = paymentcodedomain.PaymentCodeStatusActive
+func (s PaymentCodeService) Create(p *golangtraining.PaymentCode) error {
+	now := time.Now().UTC()
+	p.ExpirationDate = now.AddDate(51, 0, 0)
 
-	if paymentCode.Name == "" {
-		standardError = &standarderror.StandardError{
-			ErrorCode: "VALIDATION_ERROR",
-			ErrorMessage: "name is is required",
-			StatusCode: 400,
-		}
+	_, err := s.repo.Create(p)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s PaymentCodeService) GetByID(ID string) (res golangtraining.PaymentCode, err error) {
+	res, err = s.repo.GetByID(ID)
+	if err != nil {
+		fmt.Println(err)
 		return
 	}
 
-	if paymentCode.PaymentCode == "" {
-		standardError = &standarderror.StandardError{
-			ErrorCode: "VALIDATION_ERROR",
-			ErrorMessage: "payment_code is required",
-			StatusCode: 400,
-		}
-		return
-	}
-
-	standardError = s.repo.Create(paymentCode)
 	return
 }
 
-func (s Service) Get(id string) (err *standarderror.StandardError, paymentCode paymentcodedomain.PaymentCode) {
-	err, paymentCode = s.repo.Get(id)
+func (s PaymentCodeService) Expire() error {
+	err := s.repo.Expire()
 	if err != nil {
-		return err, paymentCode
+		return err
 	}
-	return nil, paymentCode
+
+	return nil
 }
