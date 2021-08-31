@@ -3,21 +3,33 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
-	"github.com/xtianatilano/christian-golang-training-beginner/app/cmd/helpers"
 	"log"
 	"strconv"
+
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+
+	"github.com/xtianatilano/christian-golang-training-beginner/internal/sqs"
+
+	"github.com/xtianatilano/christian-golang-training-beginner/app/cmd/helpers"
 
 	"github.com/spf13/cobra"
 	"github.com/xtianatilano/christian-golang-training-beginner/internal/jobs"
 
-	_ "github.com/lib/pq"
+	"github.com/xtianatilano/christian-golang-training-beginner/inquiries"
 	"github.com/xtianatilano/christian-golang-training-beginner/internal/postgres"
-	paymentcode "github.com/xtianatilano/christian-golang-training-beginner/paymentcode"
+	"github.com/xtianatilano/christian-golang-training-beginner/paymentcode"
+	"github.com/xtianatilano/christian-golang-training-beginner/payments"
+
+	_ "github.com/lib/pq"
 )
 
 var (
 	paymentCodeRepository *postgres.PaymentCodeRepository
 	paymentCodeService    *paymentcode.PaymentCodeService
+	inquiriesRepository   *postgres.InquiriesRepository
+	inquiriesService      *inquiries.InquiryService
+	paymentsService       *payments.PaymentService
+	paymentsRepository    *postgres.PaymentsRepository
 	rootCmd               = &cobra.Command{
 		Use:   "app",
 		Short: "Application",
@@ -40,10 +52,6 @@ func initApp() {
 	password := helpers.MustHaveEnv("POSTGRES_PASSWORD")
 	dbname := helpers.MustHaveEnv("POSTGRES_DB_NAME")
 
-
-	//psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-	//	"password=%s dbname=%s sslmode=disable",
-	//	host, port, user, password, dbname)
 	psqlInfo := fmt.Sprintf("postgres://%v:%v@%v:%v/%v?sslmode=disable",
 		user,
 		password,
@@ -53,9 +61,6 @@ func initApp() {
 	)
 
 	db, err := sql.Open("postgres", psqlInfo)
-	paymentCodeRepository = postgres.NewPaymentCodeRepository(db)
-	paymentCodeService = paymentcode.NewService(paymentCodeRepository)
-
 	if err != nil {
 		panic(err)
 	}
@@ -64,6 +69,15 @@ func initApp() {
 	if err != nil {
 		panic(err)
 	}
+
+	sqsPublisher, _ := sqs.NewPublisher(endpoints.UsEast1RegionID, helpers.MustHaveEnv("SQS_ENDPOINT"))
+
+	paymentCodeRepository = postgres.NewPaymentCodeRepository(db)
+	paymentCodeService = paymentcode.NewService(paymentCodeRepository)
+	inquiriesRepository = postgres.NewInquiriesRepository(db)
+	inquiriesService = inquiries.NewService(inquiriesRepository, *paymentCodeService)
+	paymentsRepository = postgres.NewPaymentsRepository(db)
+	paymentsService = payments.NewService(paymentsRepository, *inquiriesService, sqsPublisher)
 
 	fmt.Println("Successfully connected!")
 

@@ -70,6 +70,27 @@ func (t PaymentCodeRepository) GetByID(ID string) (golangtraining.PaymentCode, e
 	return res, nil
 }
 
+func (t PaymentCodeRepository) GetByPaymentCode(paymentCode string) (golangtraining.PaymentCode, error) {
+	var res golangtraining.PaymentCode
+	var err error
+
+	query := sq.
+		Select("*").
+		Where(sq.Eq{"payment_code": paymentCode}).
+		From("payment_codes").
+		PlaceholderFormat(sq.Dollar)
+
+	err = query.RunWith(t.DB).QueryRow().Scan(
+		&res.ID, &res.PaymentCode, &res.Name, &res.Status, &res.ExpirationDate, &res.CreatedAt, &res.UpdatedAt,
+	)
+
+	if err != nil {
+		return res, errors.New("not found")
+	}
+
+	return res, nil
+}
+
 func (t PaymentCodeRepository) Expire() error {
 	query := `UPDATE payment_codes SET updated_at=$1, status='INACTIVE' WHERE status = 'ACTIVE' AND expiration_date <= $2`
 

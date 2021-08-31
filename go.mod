@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/Masterminds/squirrel v1.5.0
+	github.com/aws/aws-sdk-go v1.29.15
 	github.com/golang-migrate/migrate/v4 v4.14.1
 	github.com/golang/mock v1.5.0
 	github.com/google/uuid v1.2.0
